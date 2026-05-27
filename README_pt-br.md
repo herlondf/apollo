@@ -1,0 +1,239 @@
+# Apollo
+
+<p align="center">
+  <img src="docs/logo.png" alt="Apollo" width="280">
+</p>
+
+<p align="center">
+  Logging estruturado para Delphi — API fluente, dispatcher assíncrono, sinks plugáveis, OpenTelemetry.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License"></a>
+  <a href="https://www.embarcadero.com/products/delphi"><img src="https://img.shields.io/badge/Delphi-11%2B-red?style=flat-square" alt="Delphi 11+"></a>
+  <a href="#sinks"><img src="https://img.shields.io/badge/sinks-7%20built--in-orange?style=flat-square" alt="7 Sinks"></a>
+</p>
+
+---
+
+Apollo traz logging estruturado e assíncrono ao Delphi. Nomeado em homenagem ao deus da luz e da
+verdade — *trazendo as coisas à luz*. Todos os projetos da família olímpica emitem logs via Apollo.
+
+## Início Rápido
+
+```pascal
+uses Apollo, Apollo.Sink.Console, Apollo.Dispatcher;
+
+var
+  Dispatcher: TApolloDispatcher;
+begin
+  Dispatcher := TApolloDispatcher.New;
+  Dispatcher.AddSink(TApolloConsoleSink.New(llInfo));
+  ApolloSetup(Dispatcher);
+  Dispatcher.Start;
+
+  Apollo.Info('servidor iniciado').Field('porta', 9000).Emit;
+  Apollo.Warn('memoria alta').Field('mb', 512).Emit;
+  Apollo.Error('job falhou', E).Field('job_id', '123').Emit;
+end;
+```
+
+## API Fluente
+
+```pascal
+Apollo.Info('requisicao processada')
+  .Field('method', 'GET')
+  .Field('path', '/users')
+  .Field('status', 200)
+  .Field('ms', 14)
+  .TraceId('abc123')
+  .SpanId('def456')
+  .Emit;
+```
+
+## Níveis de Log
+
+```pascal
+Apollo.Trace('detalhe verboso').Emit;
+Apollo.Debug('estado interno').Emit;
+Apollo.Info('evento normal').Emit;
+Apollo.Warn('algo inesperado').Emit;
+Apollo.Error('algo falhou').Emit;
+Apollo.Fatal('irrecuperavel').Emit;
+```
+
+## Instalação
+
+```bash
+git clone https://github.com/herlondf/apollo.git
+```
+
+Adicione ao search path do projeto:
+
+```
+apollo\src
+```
+
+Sem dependências externas — usa apenas `System.Net.HttpClient` (RTL) para sinks HTTP.
+
+## Requisitos
+
+- **Delphi 11 Alexandria** ou superior
+- Nenhuma dependência externa obrigatória
+
+## Sinks
+
+| Sink | Unit | Transporte |
+|------|------|-----------|
+| `TApolloConsoleSink` | `Apollo.Sink.Console` | Stdout com cores ANSI |
+| `TApolloFileSink` | `Apollo.Sink.File` | Arquivo NDJSON com rotação por tamanho |
+| `TApolloSeqSink` | `Apollo.Sink.Seq` | Seq — formato CLEF via HTTP |
+| `TApolloLokiSink` | `Apollo.Sink.Loki` | Grafana Loki push API |
+| `TApolloElasticsearchSink` | `Apollo.Sink.Elasticsearch` | Elasticsearch Bulk API |
+| `TApolloDatadogSink` | `Apollo.Sink.Datadog` | Datadog Logs API v2 |
+| `TApolloOTLPSink` | `Apollo.Sink.OTLP` | OpenTelemetry OTLP/HTTP `/v1/logs` |
+
+Implemente `IApolloSink` (2 métodos) para adicionar o seu próprio.
+
+## Múltiplos Sinks
+
+```pascal
+Dispatcher.AddSink(TApolloConsoleSink.New(llDebug));
+Dispatcher.AddSink(TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo));
+Dispatcher.AddSink(TApolloLokiSink.New('http://loki:3100', llWarn));
+```
+
+Cada sink tem seu próprio nível mínimo. Console mostra debug; Loki recebe apenas warnings e acima.
+
+## Seq
+
+```pascal
+uses Apollo.Sink.Seq;
+
+Dispatcher.AddSink(
+  TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo)
+);
+```
+
+## Loki
+
+```pascal
+uses Apollo.Sink.Loki;
+
+Dispatcher.AddSink(
+  TApolloLokiSink.New('http://loki:3100', llInfo)
+    .Label('app', 'my-api')
+    .Label('env', 'production')
+);
+```
+
+## Elasticsearch
+
+```pascal
+uses Apollo.Sink.Elasticsearch;
+
+Dispatcher.AddSink(
+  TApolloElasticsearchSink.New('http://es:9200', 'logs-myapp', llInfo)
+    .BasicAuth('elastic', 'password')
+);
+```
+
+## Datadog
+
+```pascal
+uses Apollo.Sink.Datadog;
+
+Dispatcher.AddSink(
+  TApolloDatadogSink.New('my-dd-api-key', llInfo)
+    .Site('datadoghq.eu')   // opcional — padrão: datadoghq.com
+);
+```
+
+## OpenTelemetry (OTLP)
+
+```pascal
+uses Apollo.Sink.OTLP;
+
+Dispatcher.AddSink(
+  TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
+    .ResourceAttribute('service.name', 'my-api')
+    .ResourceAttribute('deployment.environment', 'production')
+);
+```
+
+## Arquitetura
+
+Apollo usa o padrão **produtor-consumidor**. Threads da aplicação enfileiram entradas de log
+instantaneamente (sem bloqueio). Um dispatcher em background drena a fila em lotes e distribui
+para os sinks em paralelo.
+
+```
+Thread da app → TThreadedQueue (capacidade 10.000) → Dispatcher background
+                                                           ↓
+                               TTask.Run por sink (flush paralelo)
+                               ConsoleSink | SeqSink | LokiSink | ...
+```
+
+- Zero latência no hot path — `Emit` é um push na fila
+- Flush em lote a cada 500ms ou 100 entradas (o que ocorrer primeiro)
+- `Stop` drena as entradas restantes antes de encerrar
+
+## Estrutura do Projeto
+
+```
+src/
+  Apollo.pas                        Entry-point umbrella + singleton global
+  Apollo.Entry.pas                  TApolloLogEntry, TApolloLogLevel
+  Apollo.Sink.Interfaces.pas        Interface IApolloSink
+  Apollo.Dispatcher.pas             TApolloDispatcher (fila async + thread)
+  Apollo.Logger.pas                 IApolloLogger, IApolloLogBuilder
+  Apollo.Sink.Console.pas           Sink console (cores ANSI)
+  Apollo.Sink.File.pas              Sink arquivo (NDJSON, rotação)
+  Apollo.Sink.Seq.pas               Sink Seq (CLEF)
+  Apollo.Sink.Loki.pas              Sink Loki (push API)
+  Apollo.Sink.Elasticsearch.pas     Sink Elasticsearch (Bulk API)
+  Apollo.Sink.Datadog.pas           Sink Datadog (Logs API v2)
+  Apollo.Sink.OTLP.pas              Sink OpenTelemetry OTLP
+
+samples/                            Exemplos executáveis
+tests/                              Testes DUnitX
+docs/
+  playbook/                         Guia em inglês
+  playbook_pt-br/                   Guia em português
+```
+
+## Inspiração
+
+Apollo é inspirado em [Serilog](https://serilog.net/) (C#), [Zap](https://github.com/uber-go/zap) (Go),
+[Winston](https://github.com/winstonjs/winston) (Node.js) e [Logrus](https://github.com/sirupsen/logrus) (Go).
+Os mesmos conceitos — campos estruturados, sinks assíncronos, outputs plugáveis — trazidos nativamente ao Delphi.
+
+## A Família Olímpica
+
+> *Poseidon comanda os mares — transporte bruto, a força das ondas.*
+> *Triton guarda as águas do pai — gerencia o que flui, retém o que não pode se perder.*
+> *Pégaso voa pelos céus — nasceu do sangue de Medusa, pela espada que Hermes deu a Perseu.*
+> *Hermes percorre todos os reinos — carrega mensagens entre deuses, mortais e monstros.*
+> *Hefesto forja nas profundezas — invisível, incansável, transformando matéria bruta em obra acabada.*
+> *Iris vai e volta — o cliente HTTP que chama o mundo.*
+> *Apollo é o deus da luz e da verdade — traz tudo à luz.*
+
+| Projeto | Mito | Papel |
+|---------|------|-------|
+| [**Poseidon**](https://github.com/herlondf/poseidon) | Deus dos mares | Camada de transporte assíncrono — IOCP/epoll, I/O bruto |
+| [**Triton**](https://github.com/herlondf/triton) | Filho de Poseidon, guardião das profundezas | Pool de recursos genérico — conexões, clientes, SMTP |
+| [**Pegasus**](https://github.com/herlondf/pegasus) | Nascido do sangue de Poseidon, cavalgado por heróis | Framework HTTP — roteamento, middleware, providers |
+| [**Hermes**](https://github.com/herlondf/hermes) | Mensageiro dos deuses, guia entre os reinos | Cliente Redis — chave-valor rápido, pub/sub, mensageria |
+| [**Hefesto**](https://github.com/herlondf/hefesto) | Ferreiro dos deuses, trabalha nas profundezas | Background jobs — filas, workers, retry, scheduling |
+| [**Iris**](https://github.com/herlondf/iris) | Deusa do arco-íris, mensageira que vai e volta | Cliente HTTP — API fluente, retry, transportes plugáveis |
+| **Apollo** (esta lib) | Deus da luz e da verdade, traz as coisas à luz | Logging estruturado — sinks assíncronos, OTLP, Seq, Loki, Datadog |
+
+---
+
+## Licença
+
+MIT — use livremente em projetos comerciais e open-source.
+
+---
+
+> 🇺🇸 Read this document in English: [README.md](./README.md)
