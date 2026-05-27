@@ -8,7 +8,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloLokiSink = class(TInterfacedObject, IApollSink)
+  TApolloLokiSink = class(TInterfacedObject, IApolloSink)
   private
     FBaseURL: string;
     FUser: string;
@@ -21,7 +21,7 @@ type
   public
     class function New(const ABaseURL: string; const AUser: string = '';
       const APassword: string = '';
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     constructor Create(const ABaseURL: string; const AUser: string;
       const APassword: string; const AMinLevel: TApolloLogLevel);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
@@ -41,7 +41,7 @@ uses
 
 class function TApolloLokiSink.New(const ABaseURL: string;
   const AUser: string; const APassword: string;
-  const AMinLevel: TApolloLogLevel): IApollSink;
+  const AMinLevel: TApolloLogLevel): IApolloSink;
 begin
   Result := TApolloLokiSink.Create(ABaseURL, AUser, APassword, AMinLevel);
 end;
@@ -69,12 +69,20 @@ end;
 
 function TApolloLokiSink.FormatFields(const AEntry: TApolloLogEntry): string;
 var
-  LPair: TPair<string, string>;
+  LPair: TPair<string, TApolloFieldValue>;
   LResult: string;
 begin
   LResult := AEntry.Message;
   for LPair in AEntry.Fields do
-    LResult := LResult + ' ' + LPair.Key + '=' + LPair.Value;
+  begin
+    case LPair.Value.Kind of
+      fkInt64:   LResult := LResult + ' ' + LPair.Key + '=' + IntToStr(LPair.Value.AsInt64);
+      fkDouble:  LResult := LResult + ' ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble);
+      fkBoolean: LResult := LResult + ' ' + LPair.Key + '=' + BoolToStr(LPair.Value.AsBoolean, True);
+    else
+      LResult := LResult + ' ' + LPair.Key + '=' + LPair.Value.AsString;
+    end;
+  end;
   Result := LResult;
 end;
 
@@ -90,7 +98,6 @@ var
   LResult: TStringBuilder;
   LFirst: Boolean;
   LPair: TPair<string, TStringBuilder>;
-  LLabelPair: TPair<string, string>;
   LNs: Int64;
 begin
   LStreams := TDictionary<string, TStringBuilder>.Create;
@@ -127,7 +134,6 @@ begin
         if not LFirst then
           LResult.Append(',');
         LFirst := False;
-        LLabelPair.Key := LPair.Key;
         LResult.Append('{"stream":');
         LResult.Append(LLabels[LPair.Key]);
         LResult.Append(',"values":[');

@@ -14,7 +14,7 @@ type
   TApolloDispatcher = class
   private
     FQueue: TThreadedQueue<TApolloLogEntry>;
-    FSinks: TList<IApollSink>;
+    FSinks: TList<IApolloSink>;
     FThread: TThread;
     FFlushIntervalMs: Integer;
     FBatchSize: Integer;
@@ -26,7 +26,7 @@ type
     constructor Create(const AFlushIntervalMs: Integer = 500;
       const ABatchSize: Integer = 100);
     destructor Destroy; override;
-    procedure AddSink(const ASink: IApollSink);
+    procedure AddSink(const ASink: IApolloSink);
     procedure Enqueue(const AEntry: TApolloLogEntry);
     procedure Start;
     procedure Stop;
@@ -50,7 +50,7 @@ begin
   FBatchSize := ABatchSize;
   FRunning := False;
   FQueue := TThreadedQueue<TApolloLogEntry>.Create(10000, 100, 0);
-  FSinks := TList<IApollSink>.Create;
+  FSinks := TList<IApolloSink>.Create;
 end;
 
 destructor TApolloDispatcher.Destroy;
@@ -62,7 +62,7 @@ begin
   inherited;
 end;
 
-procedure TApolloDispatcher.AddSink(const ASink: IApollSink);
+procedure TApolloDispatcher.AddSink(const ASink: IApolloSink);
 begin
   FSinks.Add(ASink);
 end;
@@ -74,7 +74,7 @@ end;
 
 procedure TApolloDispatcher.FlushBatch(const ABatch: TArray<TApolloLogEntry>);
 
-  function FilterForSink(const ASink: IApollSink): TArray<TApolloLogEntry>;
+  function FilterForSink(const ASink: IApolloSink): TArray<TApolloLogEntry>;
   var
     LResult: TArray<TApolloLogEntry>;
     LCount: Integer;
@@ -94,10 +94,10 @@ procedure TApolloDispatcher.FlushBatch(const ABatch: TArray<TApolloLogEntry>);
     Result := LResult;
   end;
 
-  function MakeSinkTask(const ASink: IApollSink;
+  function MakeSinkTask(const ASink: IApolloSink;
     const AFiltered: TArray<TApolloLogEntry>): ITask;
   var
-    LCaptureSink: IApollSink;
+    LCaptureSink: IApolloSink;
     LCaptureFiltered: TArray<TApolloLogEntry>;
   begin
     LCaptureSink := ASink;
@@ -113,7 +113,7 @@ procedure TApolloDispatcher.FlushBatch(const ABatch: TArray<TApolloLogEntry>);
 var
   LTasks: TArray<ITask>;
   LIdx: Integer;
-  LSink: IApollSink;
+  LSink: IApolloSink;
   LFiltered: TArray<TApolloLogEntry>;
 begin
   if Length(ABatch) = 0 then

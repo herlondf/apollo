@@ -8,7 +8,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloElasticsearchSink = class(TInterfacedObject, IApollSink)
+  TApolloElasticsearchSink = class(TInterfacedObject, IApolloSink)
   private
     FBaseURL: string;
     FMinLevel: TApolloLogLevel;
@@ -19,9 +19,9 @@ type
   public
     class function New(const ABaseURL: string; const AUser: string = '';
       const APassword: string = '';
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     class function NewWithApiKey(const ABaseURL, AApiKey: string;
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     constructor Create(const ABaseURL: string; const AAuthHeader: string;
       const AMinLevel: TApolloLogLevel);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
@@ -39,7 +39,7 @@ uses
 
 class function TApolloElasticsearchSink.New(const ABaseURL: string;
   const AUser: string; const APassword: string;
-  const AMinLevel: TApolloLogLevel): IApollSink;
+  const AMinLevel: TApolloLogLevel): IApolloSink;
 var
   LAuth: string;
   LEncoded: string;
@@ -54,7 +54,7 @@ begin
 end;
 
 class function TApolloElasticsearchSink.NewWithApiKey(const ABaseURL,
-  AApiKey: string; const AMinLevel: TApolloLogLevel): IApollSink;
+  AApiKey: string; const AMinLevel: TApolloLogLevel): IApolloSink;
 begin
   Result := TApolloElasticsearchSink.Create(ABaseURL,
     'ApiKey ' + AApiKey, AMinLevel);

@@ -8,7 +8,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloSeqSink = class(TInterfacedObject, IApollSink)
+  TApolloSeqSink = class(TInterfacedObject, IApolloSink)
   private
     FBaseURL: string;
     FApiKey: string;
@@ -19,7 +19,7 @@ type
     procedure SendBatch(const ABody: string);
   public
     class function New(const ABaseURL: string; const AApiKey: string = '';
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     constructor Create(const ABaseURL: string; const AApiKey: string;
       const AMinLevel: TApolloLogLevel);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
@@ -36,7 +36,7 @@ uses
 { TApolloSeqSink }
 
 class function TApolloSeqSink.New(const ABaseURL: string;
-  const AApiKey: string; const AMinLevel: TApolloLogLevel): IApollSink;
+  const AApiKey: string; const AMinLevel: TApolloLogLevel): IApolloSink;
 begin
   Result := TApolloSeqSink.Create(ABaseURL, AApiKey, AMinLevel);
 end;
@@ -72,7 +72,7 @@ end;
 function TApolloSeqSink.EntrytoCLEF(const AEntry: TApolloLogEntry): string;
 var
   LObj: TJSONObject;
-  LPair: TPair<string, string>;
+  LPair: TPair<string, TApolloFieldValue>;
   LYear, LMonth, LDay, LHour, LMin, LSec, LMs: Word;
 begin
   LObj := TJSONObject.Create;
@@ -89,7 +89,7 @@ begin
     if AEntry.SpanId <> '' then
       LObj.AddPair('spanId', AEntry.SpanId);
     for LPair in AEntry.Fields do
-      LObj.AddPair(LPair.Key, LPair.Value);
+      LObj.AddPair(LPair.Key, FieldValueToJSON(LPair.Value));
     Result := LObj.ToJSON;
   finally
     LObj.Free;

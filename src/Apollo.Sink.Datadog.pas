@@ -8,7 +8,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloDatadogSink = class(TInterfacedObject, IApollSink)
+  TApolloDatadogSink = class(TInterfacedObject, IApolloSink)
   private
     FApiKey: string;
     FService: string;
@@ -22,7 +22,7 @@ type
   public
     class function New(const AApiKey: string; const AService: string = 'app';
       const ASite: string = 'us';
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     constructor Create(const AApiKey: string; const AService: string;
       const AEndpointURL: string; const AMinLevel: TApolloLogLevel);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
@@ -40,7 +40,7 @@ uses
 
 class function TApolloDatadogSink.New(const AApiKey: string;
   const AService: string; const ASite: string;
-  const AMinLevel: TApolloLogLevel): IApollSink;
+  const AMinLevel: TApolloLogLevel): IApolloSink;
 var
   LURL: string;
 begin
@@ -100,7 +100,7 @@ function TApolloDatadogSink.BuildBody(
 var
   LBuilder: TStringBuilder;
   LEntry: TApolloLogEntry;
-  LPair: TPair<string, string>;
+  LPair: TPair<string, TApolloFieldValue>;
   LFirst: Boolean;
   LFirstField: Boolean;
   LHostName: string;
@@ -150,18 +150,21 @@ begin
         LBuilder.Append(LEntry.SpanId);
         LBuilder.Append('"');
       end;
-      LFirstField := True;
       for LPair in LEntry.Fields do
       begin
-        if LFirstField then
-        begin
-          LFirstField := False;
-        end;
         LBuilder.Append(',"');
         LBuilder.Append(LPair.Key);
-        LBuilder.Append('":"');
-        LBuilder.Append(StringReplace(LPair.Value, '"', '\"', [rfReplaceAll]));
-        LBuilder.Append('"');
+        LBuilder.Append('":');
+        case LPair.Value.Kind of
+          fkInt64:   LBuilder.Append(IntToStr(LPair.Value.AsInt64));
+          fkDouble:  LBuilder.Append(FloatToStr(LPair.Value.AsDouble));
+          fkBoolean: if LPair.Value.AsBoolean then LBuilder.Append('true')
+                     else LBuilder.Append('false');
+        else
+          LBuilder.Append('"');
+          LBuilder.Append(StringReplace(LPair.Value.AsString, '"', '\"', [rfReplaceAll]));
+          LBuilder.Append('"');
+        end;
       end;
       LBuilder.Append('}');
     end;

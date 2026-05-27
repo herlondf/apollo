@@ -9,7 +9,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloFileSink = class(TInterfacedObject, IApollSink)
+  TApolloFileSink = class(TInterfacedObject, IApolloSink)
   private
     FFilePath: string;
     FMinLevel: TApolloLogLevel;
@@ -22,7 +22,7 @@ type
   public
     class function New(const AFilePath: string;
       const AMinLevel: TApolloLogLevel = llInfo;
-      const AMaxSizeMB: Integer = 100): IApollSink;
+      const AMaxSizeMB: Integer = 100): IApolloSink;
     constructor Create(const AFilePath: string;
       const AMinLevel: TApolloLogLevel = llInfo;
       const AMaxSizeMB: Integer = 100);
@@ -36,7 +36,7 @@ implementation
 { TApolloFileSink }
 
 class function TApolloFileSink.New(const AFilePath: string;
-  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer): IApollSink;
+  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer): IApolloSink;
 begin
   Result := TApolloFileSink.Create(AFilePath, AMinLevel, AMaxSizeMB);
 end;

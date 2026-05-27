@@ -7,13 +7,13 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloConsoleSink = class(TInterfacedObject, IApollSink)
+  TApolloConsoleSink = class(TInterfacedObject, IApolloSink)
   private
     FMinLevel: TApolloLogLevel;
     function LevelColor(const ALevel: TApolloLogLevel): string;
     function FormatEntry(const AEntry: TApolloLogEntry): string;
   public
-    class function New(const AMinLevel: TApolloLogLevel = llDebug): IApollSink;
+    class function New(const AMinLevel: TApolloLogLevel = llDebug): IApolloSink;
     constructor Create(const AMinLevel: TApolloLogLevel = llDebug);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
@@ -35,7 +35,7 @@ const
 
 { TApolloConsoleSink }
 
-class function TApolloConsoleSink.New(const AMinLevel: TApolloLogLevel): IApollSink;
+class function TApolloConsoleSink.New(const AMinLevel: TApolloLogLevel): IApolloSink;
 begin
   Result := TApolloConsoleSink.Create(AMinLevel);
 end;
@@ -69,7 +69,7 @@ function TApolloConsoleSink.FormatEntry(const AEntry: TApolloLogEntry): string;
 var
   LColor: string;
   LFields: string;
-  LPair: TPair<string, string>;
+  LPair: TPair<string, TApolloFieldValue>;
   LYear, LMonth, LDay, LHour, LMin, LSec, LMs: Word;
   LTimestamp: string;
   LLevelStr: string;
@@ -83,7 +83,15 @@ begin
 
   LFields := '';
   for LPair in AEntry.Fields do
-    LFields := LFields + '  ' + LPair.Key + '=' + LPair.Value;
+  begin
+    case LPair.Value.Kind of
+      fkInt64:   LFields := LFields + '  ' + LPair.Key + '=' + IntToStr(LPair.Value.AsInt64);
+      fkDouble:  LFields := LFields + '  ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble);
+      fkBoolean: LFields := LFields + '  ' + LPair.Key + '=' + BoolToStr(LPair.Value.AsBoolean, True);
+    else
+      LFields := LFields + '  ' + LPair.Key + '=' + LPair.Value.AsString;
+    end;
+  end;
 
   Result := LColor + '[' + LTimestamp + '] ' + LLevelStr + '  ' +
             AEntry.Message + LFields + ANSI_RESET;

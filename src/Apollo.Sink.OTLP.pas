@@ -8,7 +8,7 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloOTLPSink = class(TInterfacedObject, IApollSink)
+  TApolloOTLPSink = class(TInterfacedObject, IApolloSink)
   private
     FCollectorURL: string;
     FServiceName: string;
@@ -21,7 +21,7 @@ type
   public
     class function New(const ACollectorURL: string;
       const AServiceName: string = 'app';
-      const AMinLevel: TApolloLogLevel = llInfo): IApollSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
     constructor Create(const ACollectorURL: string; const AServiceName: string;
       const AMinLevel: TApolloLogLevel);
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
@@ -38,7 +38,7 @@ uses
 { TApolloOTLPSink }
 
 class function TApolloOTLPSink.New(const ACollectorURL: string;
-  const AServiceName: string; const AMinLevel: TApolloLogLevel): IApollSink;
+  const AServiceName: string; const AMinLevel: TApolloLogLevel): IApolloSink;
 begin
   Result := TApolloOTLPSink.Create(ACollectorURL, AServiceName, AMinLevel);
 end;
@@ -80,7 +80,7 @@ function TApolloOTLPSink.BuildLogRecord(
   const AEntry: TApolloLogEntry): string;
 var
   LBuilder: TStringBuilder;
-  LPair: TPair<string, string>;
+  LPair: TPair<string, TApolloFieldValue>;
   LFirst: Boolean;
 begin
   LBuilder := TStringBuilder.Create;
@@ -109,9 +109,28 @@ begin
         LFirst := False;
         LBuilder.Append('{"key":"');
         LBuilder.Append(LPair.Key);
-        LBuilder.Append('","value":{"stringValue":"');
-        LBuilder.Append(StringReplace(LPair.Value, '"', '\"', [rfReplaceAll]));
-        LBuilder.Append('"}}');
+        LBuilder.Append('","value":{');
+        case LPair.Value.Kind of
+          fkInt64:   begin
+            LBuilder.Append('"intValue":"');
+            LBuilder.Append(IntToStr(LPair.Value.AsInt64));
+            LBuilder.Append('"');
+          end;
+          fkDouble:  begin
+            LBuilder.Append('"doubleValue":');
+            LBuilder.Append(FloatToStr(LPair.Value.AsDouble));
+          end;
+          fkBoolean: begin
+            LBuilder.Append('"boolValue":');
+            if LPair.Value.AsBoolean then LBuilder.Append('true')
+            else LBuilder.Append('false');
+          end;
+        else
+          LBuilder.Append('"stringValue":"');
+          LBuilder.Append(StringReplace(LPair.Value.AsString, '"', '\"', [rfReplaceAll]));
+          LBuilder.Append('"');
+        end;
+        LBuilder.Append('}}');
       end;
       LBuilder.Append(']');
     end;
