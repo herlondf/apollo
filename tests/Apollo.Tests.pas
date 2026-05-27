@@ -79,7 +79,7 @@ begin
   Entry.Level := llInfo;
   Entry.Timestamp := Now;
   JSON := EntryToJSON(Entry);
-  Assert.IsTrue(JSON.Contains('"timestamp"') or JSON.Contains('"time"'), 'JSON must contain timestamp');
+  Assert.IsTrue(JSON.Contains('"@timestamp"'), 'JSON must contain @timestamp');
 end;
 
 procedure TApolloLogEntryTests.EntryToJSON_ContainsFields;
@@ -100,12 +100,12 @@ end;
 
 procedure TApolloLogEntryTests.LevelName_Trace_IsTrace;
 begin
-  Assert.AreEqual('TRACE', LevelName(llTrace));
+  Assert.AreEqual('TRACE', LevelToString(llTrace));
 end;
 
 procedure TApolloLogEntryTests.LevelName_Fatal_IsFatal;
 begin
-  Assert.AreEqual('FATAL', LevelName(llFatal));
+  Assert.AreEqual('FATAL', LevelToString(llFatal));
 end;
 
 { TApolloLoggerTests }
@@ -117,7 +117,7 @@ var
   Builder: IApolloLogBuilder;
 begin
   Dispatcher := TApolloDispatcher.New;
-  Logger := TApolloLoggerImpl.New(Dispatcher, 'test');
+  Logger := TApolloLogger.New(Dispatcher);
   Builder := Logger.Info('test').Field('key', 'value');
   Assert.IsNotNull(Builder);
 end;
@@ -129,7 +129,7 @@ var
   Builder: IApolloLogBuilder;
 begin
   Dispatcher := TApolloDispatcher.New;
-  Logger := TApolloLoggerImpl.New(Dispatcher, 'test');
+  Logger := TApolloLogger.New(Dispatcher);
   Builder := Logger.Info('test').Field('count', 42);
   Assert.IsNotNull(Builder);
 end;
@@ -141,7 +141,7 @@ var
   Builder: IApolloLogBuilder;
 begin
   Dispatcher := TApolloDispatcher.New;
-  Logger := TApolloLoggerImpl.New(Dispatcher, 'test');
+  Logger := TApolloLogger.New(Dispatcher);
   Builder := Logger.Info('test').TraceId('abc123');
   Assert.IsNotNull(Builder);
 end;
