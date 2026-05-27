@@ -37,7 +37,7 @@ type
   private
     FEntry: TApolloLogEntry;
     FDispatcher: TApolloDispatcher;
-    FFields: TList<TPair<string, string>>;
+    FFields: TList<TPair<string, TApolloFieldValue>>;
   public
     constructor Create(const ADispatcher: TApolloDispatcher;
       const AEntry: TApolloLogEntry);
@@ -85,7 +85,7 @@ begin
   inherited Create;
   FDispatcher := ADispatcher;
   FEntry := AEntry;
-  FFields := TList<TPair<string, string>>.Create;
+  FFields := TList<TPair<string, TApolloFieldValue>>.Create;
 end;
 
 destructor TApolloLogBuilder.Destroy;
@@ -95,27 +95,43 @@ begin
 end;
 
 function TApolloLogBuilder.Field(const AKey, AValue: string): IApolloLogBuilder;
+var
+  LVal: TApolloFieldValue;
 begin
-  FFields.Add(TPair<string, string>.Create(AKey, AValue));
+  LVal.Kind     := fkString;
+  LVal.AsString := AValue;
+  FFields.Add(TPair<string, TApolloFieldValue>.Create(AKey, LVal));
   Result := Self;
 end;
 
 function TApolloLogBuilder.Field(const AKey: string; AValue: Integer): IApolloLogBuilder;
+var
+  LVal: TApolloFieldValue;
 begin
-  Result := Field(AKey, IntToStr(AValue));
+  LVal.Kind    := fkInt64;
+  LVal.AsInt64 := AValue;
+  FFields.Add(TPair<string, TApolloFieldValue>.Create(AKey, LVal));
+  Result := Self;
 end;
 
 function TApolloLogBuilder.Field(const AKey: string; AValue: Double): IApolloLogBuilder;
+var
+  LVal: TApolloFieldValue;
 begin
-  Result := Field(AKey, FloatToStr(AValue));
+  LVal.Kind     := fkDouble;
+  LVal.AsDouble := AValue;
+  FFields.Add(TPair<string, TApolloFieldValue>.Create(AKey, LVal));
+  Result := Self;
 end;
 
 function TApolloLogBuilder.Field(const AKey: string; AValue: Boolean): IApolloLogBuilder;
+var
+  LVal: TApolloFieldValue;
 begin
-  if AValue then
-    Result := Field(AKey, 'true')
-  else
-    Result := Field(AKey, 'false');
+  LVal.Kind      := fkBoolean;
+  LVal.AsBoolean := AValue;
+  FFields.Add(TPair<string, TApolloFieldValue>.Create(AKey, LVal));
+  Result := Self;
 end;
 
 function TApolloLogBuilder.TraceId(const AId: string): IApolloLogBuilder;
@@ -207,11 +223,10 @@ end;
 
 function TApolloLogger.Error(const AMessage: string;
   const AException: Exception): IApolloLogBuilder;
-var
-  LMsg: string;
 begin
-  LMsg := AMessage + ': ' + AException.ClassName + ' - ' + AException.Message;
-  Result := BuildEntry(llError, LMsg);
+  Result := BuildEntry(llError, AMessage)
+    .Field('error.type',    AException.ClassName)
+    .Field('error.message', AException.Message);
 end;
 
 function TApolloLogger.Fatal(const AMessage: string): IApolloLogBuilder;
