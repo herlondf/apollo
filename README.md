@@ -283,6 +283,10 @@ The same concepts — structured fields, async sinks, pluggable outputs — brou
 
 ---
 
+## Contributing
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) · [docs/CONTRIBUTING_pt-br.md](docs/CONTRIBUTING_pt-br.md)
+
 ## License
 
 MIT — use freely in commercial and open-source projects.

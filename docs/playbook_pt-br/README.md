@@ -1,18 +1,18 @@
-# Apollo Playbook
+# Apollo Playbook (pt-BR)
 
-> Guia modular para a biblioteca de logging estruturado Apollo.
+Documentação técnica da biblioteca de logging estruturado Apollo.
 
-## Capítulos
-
-1. [Visão Geral](01-visao-geral/README.md) — o que é o Apollo, arquitetura, quando usar
-2. [Instalação](02-instalacao/README.md) — search path, requisitos
-3. [Início Rápido](03-inicio-rapido/README.md) — primeiro log em 5 minutos
-4. [Sinks](04-sinks/README.md) — Console, File, Seq, Loki, Elasticsearch, Datadog, OTLP
-5. [Dispatcher](05-dispatcher/README.md) — fila assíncrona, batching, comportamento no shutdown
-6. [Campos Estruturados](06-campos/README.md) — enriquecendo entradas, contexto global, escopos
-7. [OpenTelemetry](07-otlp/README.md) — sink OTLP, correlação de traces, resource attributes
-8. [Receitas](08-receitas/README.md) — exemplos de uso reais
-9. [Produção](09-producao/README.md) — dimensionamento do buffer, falhas de sink, monitoramento
+| Capítulo | Tópico |
+|----------|--------|
+| [01 — Visão Geral](01-visao-geral/README.md) | O que é o Apollo e por que ele existe |
+| [02 — Instalação](02-instalacao/README.md) | Adicionando o Apollo ao seu projeto |
+| [03 — Conceitos Core](03-conceitos-core/README.md) | Entradas, níveis, campos e o contrato de sink |
+| [04 — Sinks](04-sinks/README.md) | Todos os 7 sinks embutidos com referência de configuração |
+| [05 — API Fluente](05-api-fluente/README.md) | Cadeia de builder, campos tipados, TraceId/SpanId |
+| [06 — Dispatcher Assíncrono](06-dispatcher-async/README.md) | Fila, batching, flush e shutdown |
+| [07 — Campos de Contexto](07-campos-de-contexto/README.md) | Campos pré-definidos por logger |
+| [08 — Sinks Customizados](08-sinks-customizados/README.md) | Implementando IApolloSink |
+| [09 — Produção](09-producao/README.md) | Tuning, tratamento de erros, campos estruturados em escala |
 
 ---
 

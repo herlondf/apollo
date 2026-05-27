@@ -146,7 +146,8 @@ begin
   try
     SendBulk(LBody);
   except
-    // Swallow exceptions to avoid disrupting application flow
+    on E: Exception do
+      WriteLn(ErrOutput, '[Apollo][ElasticsearchSink] ' + E.ClassName + ': ' + E.Message);
   end;
 end;
 

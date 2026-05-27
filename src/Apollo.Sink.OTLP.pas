@@ -137,13 +137,14 @@ begin
   end;
 end;
 
-function TApolloOTLPSink.BuildLogRecord(
-  const AEntry: TApolloLogEntry): string;
+function TApolloOTLPSink.BuildLogRecord(const AEntry: TApolloLogEntry): string;
 var
   LBuilder: TStringBuilder;
   LPair: TPair<string, TApolloFieldValue>;
   LFirst: Boolean;
+  LFmt: TFormatSettings;
 begin
+  LFmt := TFormatSettings.Invariant;
   LBuilder := TStringBuilder.Create;
   try
     LBuilder.Append('{');
@@ -173,13 +174,12 @@ begin
         LBuilder.Append('","value":{');
         case LPair.Value.Kind of
           fkInt64:   begin
-            LBuilder.Append('"intValue":"');
+            LBuilder.Append('"intValue":');
             LBuilder.Append(IntToStr(LPair.Value.AsInt64));
-            LBuilder.Append('"');
           end;
           fkDouble:  begin
             LBuilder.Append('"doubleValue":');
-            LBuilder.Append(FloatToStr(LPair.Value.AsDouble));
+            LBuilder.Append(FloatToStr(LPair.Value.AsDouble, LFmt));
           end;
           fkBoolean: begin
             LBuilder.Append('"boolValue":');
@@ -216,8 +216,7 @@ begin
   end;
 end;
 
-function TApolloOTLPSink.BuildBody(
-  const AEntries: TArray<TApolloLogEntry>): string;
+function TApolloOTLPSink.BuildBody(const AEntries: TArray<TApolloLogEntry>): string;
 var
   LBuilder: TStringBuilder;
   LEntry: TApolloLogEntry;
@@ -281,7 +280,8 @@ begin
   try
     SendBatch(LBody);
   except
-    // Swallow exceptions to avoid disrupting application flow
+    on E: Exception do
+      WriteLn(ErrOutput, '[Apollo][OTLPSink] ' + E.ClassName + ': ' + E.Message);
   end;
 end;
 

@@ -127,6 +127,16 @@ LDispatcher.AddSink(
 );
 ```
 
+Com autenticação:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloLokiSink.New('http://loki:3100', llInfo)
+    .BasicAuth('admin', 'secret')
+    .WithLabel('app', 'my-api')
+);
+```
+
 ## Elasticsearch
 
 ```pascal
@@ -156,6 +166,7 @@ LDispatcher.AddSink(
   TApolloDatadogSink.New('my-dd-api-key', llInfo)
     .Service('my-api')               // opcional — padrão: 'app'
     .Site('datadoghq.eu')            // opcional — padrão: datadoghq.com
+    .Tag('env:production,team:core') // opcional — tags Datadog
 );
 ```
 
@@ -168,7 +179,39 @@ LDispatcher.AddSink(
   TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
     .ResourceAttribute('service.name', 'my-api')
     .ResourceAttribute('deployment.environment', 'production')
+    .BearerToken('my-token')         // opcional — maioria dos collectors exige auth
 );
+```
+
+Use um cabeçalho Authorization customizado quando Bearer não for suficiente:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
+    .ResourceAttribute('service.name', 'my-api')
+    .Authorization('Basic dXNlcjpwYXNz')
+);
+```
+
+## Campos de Contexto
+
+Campos pré-definidos que se propagam para todas as entradas emitidas pelo logger:
+
+```pascal
+var
+  LLogger: IApolloLogger;
+begin
+  LLogger := TApolloLogger.New(LDispatcher)
+    .WithContext('service', 'order-processor')
+    .WithContext('version', 3)
+    .WithContext('region', 'us-east-1');
+
+  LLogger.Info('job iniciado').Field('job_id', '42').Emit;
+  // → message=job iniciado  service=order-processor  version=3  region=us-east-1  job_id=42
+
+  LLogger.Error('job falhou', E).Emit;
+  // → error.type + error.message + todos os campos de contexto
+end;
 ```
 
 ## Arquitetura
@@ -239,6 +282,10 @@ Os mesmos conceitos — campos estruturados, sinks assíncronos, outputs plugáv
 | **Apollo** (esta lib) | Deus da luz e da verdade, traz as coisas à luz | Logging estruturado — sinks assíncronos, OTLP, Seq, Loki, Datadog |
 
 ---
+
+## Contribuindo
+
+Veja [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) · [docs/CONTRIBUTING_pt-br.md](docs/CONTRIBUTING_pt-br.md)
 
 ## Licença
 

@@ -126,7 +126,9 @@ var
   LPair: TPair<string, TApolloFieldValue>;
   LFirst: Boolean;
   LHostName: string;
+  LFmt: TFormatSettings;
 begin
+  LFmt := TFormatSettings.Invariant;
   LHostName := GetHostName;
   LBuilder := TStringBuilder.Create;
   try
@@ -184,7 +186,7 @@ begin
         LBuilder.Append('":');
         case LPair.Value.Kind of
           fkInt64:   LBuilder.Append(IntToStr(LPair.Value.AsInt64));
-          fkDouble:  LBuilder.Append(FloatToStr(LPair.Value.AsDouble));
+          fkDouble:  LBuilder.Append(FloatToStr(LPair.Value.AsDouble, LFmt));
           fkBoolean: if LPair.Value.AsBoolean then LBuilder.Append('true')
                      else LBuilder.Append('false');
         else
@@ -233,7 +235,8 @@ begin
   try
     SendBatch(LBody);
   except
-    // Swallow exceptions to avoid disrupting application flow
+    on E: Exception do
+      WriteLn(ErrOutput, '[Apollo][DatadogSink] ' + E.ClassName + ': ' + E.Message);
   end;
 end;
 

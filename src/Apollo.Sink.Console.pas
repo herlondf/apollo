@@ -73,7 +73,9 @@ var
   LYear, LMonth, LDay, LHour, LMin, LSec, LMs: Word;
   LTimestamp: string;
   LLevelStr: string;
+  LFmt: TFormatSettings;
 begin
+  LFmt := TFormatSettings.Invariant;
   DecodeDateTime(AEntry.Timestamp, LYear, LMonth, LDay, LHour, LMin, LSec, LMs);
   LTimestamp := Format('%.4d-%.2d-%.2d %.2d:%.2d:%.2d',
     [LYear, LMonth, LDay, LHour, LMin, LSec]);
@@ -86,7 +88,7 @@ begin
   begin
     case LPair.Value.Kind of
       fkInt64:   LFields := LFields + '  ' + LPair.Key + '=' + IntToStr(LPair.Value.AsInt64);
-      fkDouble:  LFields := LFields + '  ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble);
+      fkDouble:  LFields := LFields + '  ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble, LFmt);
       fkBoolean: LFields := LFields + '  ' + LPair.Key + '=' + BoolToStr(LPair.Value.AsBoolean, True);
     else
       LFields := LFields + '  ' + LPair.Key + '=' + LPair.Value.AsString;
@@ -101,8 +103,13 @@ procedure TApolloConsoleSink.Write(const AEntries: TArray<TApolloLogEntry>);
 var
   LEntry: TApolloLogEntry;
 begin
-  for LEntry in AEntries do
-    WriteLn(FormatEntry(LEntry));
+  TMonitor.Enter(Self);
+  try
+    for LEntry in AEntries do
+      WriteLn(FormatEntry(LEntry));
+  finally
+    TMonitor.Exit(Self);
+  end;
 end;
 
 end.

@@ -146,7 +146,8 @@ begin
   try
     SendBatch(LBody);
   except
-    // Swallow exceptions to avoid disrupting application flow
+    on E: Exception do
+      WriteLn(ErrOutput, '[Apollo][SeqSink] ' + E.ClassName + ': ' + E.Message);
   end;
 end;
 

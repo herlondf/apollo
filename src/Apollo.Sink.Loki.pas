@@ -96,13 +96,15 @@ function TApolloLokiSink.FormatFields(const AEntry: TApolloLogEntry): string;
 var
   LPair: TPair<string, TApolloFieldValue>;
   LResult: string;
+  LFmt: TFormatSettings;
 begin
+  LFmt := TFormatSettings.Invariant;
   LResult := AEntry.Message;
   for LPair in AEntry.Fields do
   begin
     case LPair.Value.Kind of
       fkInt64:   LResult := LResult + ' ' + LPair.Key + '=' + IntToStr(LPair.Value.AsInt64);
-      fkDouble:  LResult := LResult + ' ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble);
+      fkDouble:  LResult := LResult + ' ' + LPair.Key + '=' + FloatToStr(LPair.Value.AsDouble, LFmt);
       fkBoolean: LResult := LResult + ' ' + LPair.Key + '=' + BoolToStr(LPair.Value.AsBoolean, True);
     else
       LResult := LResult + ' ' + LPair.Key + '=' + LPair.Value.AsString;
@@ -245,7 +247,8 @@ begin
   try
     SendBatch(LBody);
   except
-    // Swallow exceptions to avoid disrupting application flow
+    on E: Exception do
+      WriteLn(ErrOutput, '[Apollo][LokiSink] ' + E.ClassName + ': ' + E.Message);
   end;
 end;
 
