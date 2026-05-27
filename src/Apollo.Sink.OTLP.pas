@@ -11,6 +11,8 @@ type
   IApolloOTLPSink = interface(IApolloSink)
     ['{C4D5E6F7-A8B9-0123-4567-890123DEF012}']
     function ResourceAttribute(const AKey, AValue: string): IApolloOTLPSink;
+    function BearerToken(const AToken: string): IApolloOTLPSink;
+    function Authorization(const AHeaderValue: string): IApolloOTLPSink;
   end;
 
   TApolloOTLPSink = class(TInterfacedObject, IApolloSink, IApolloOTLPSink)
@@ -18,6 +20,7 @@ type
     FCollectorURL: string;
     FMinLevel: TApolloLogLevel;
     FResourceAttributes: TArray<TPair<string, string>>;
+    FAuthHeader: string;
     function LevelToSeverityNumber(const ALevel: TApolloLogLevel): Integer;
     function DateTimeToUnixNano(const ADateTime: TDateTime): Int64;
     function BuildBody(const AEntries: TArray<TApolloLogEntry>): string;
@@ -30,6 +33,8 @@ type
     constructor Create(const ACollectorURL: string;
       const AMinLevel: TApolloLogLevel);
     function ResourceAttribute(const AKey, AValue: string): IApolloOTLPSink;
+    function BearerToken(const AToken: string): IApolloOTLPSink;
+    function Authorization(const AHeaderValue: string): IApolloOTLPSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -56,6 +61,7 @@ begin
   FCollectorURL := ACollectorURL;
   FMinLevel := AMinLevel;
   FResourceAttributes := [];
+  FAuthHeader := '';
 end;
 
 function TApolloOTLPSink.MinLevel: TApolloLogLevel;
@@ -71,6 +77,18 @@ begin
   LIdx := Length(FResourceAttributes);
   SetLength(FResourceAttributes, LIdx + 1);
   FResourceAttributes[LIdx] := TPair<string, string>.Create(AKey, AValue);
+  Result := Self;
+end;
+
+function TApolloOTLPSink.BearerToken(const AToken: string): IApolloOTLPSink;
+begin
+  FAuthHeader := 'Bearer ' + AToken;
+  Result := Self;
+end;
+
+function TApolloOTLPSink.Authorization(const AHeaderValue: string): IApolloOTLPSink;
+begin
+  FAuthHeader := AHeaderValue;
   Result := Self;
 end;
 
@@ -239,6 +257,8 @@ begin
   try
     LURL := FCollectorURL + '/v1/logs';
     LHttp.CustomHeaders['Content-Type'] := 'application/json';
+    if FAuthHeader <> '' then
+      LHttp.CustomHeaders['Authorization'] := FAuthHeader;
 
     LBodyStream := TStringStream.Create(ABody, TEncoding.UTF8);
     try

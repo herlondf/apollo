@@ -14,6 +14,7 @@ type
     FFilePath: string;
     FMinLevel: TApolloLogLevel;
     FMaxSizeBytes: Int64;
+    FMaxBackups: Integer;
     FWriter: TStreamWriter;
     FLock: TObject;
     procedure OpenWriter;
@@ -22,10 +23,12 @@ type
   public
     class function New(const AFilePath: string;
       const AMinLevel: TApolloLogLevel = llInfo;
-      const AMaxSizeMB: Integer = 100): IApolloSink;
+      const AMaxSizeMB: Integer = 100;
+      const AMaxBackups: Integer = 5): IApolloSink;
     constructor Create(const AFilePath: string;
       const AMinLevel: TApolloLogLevel = llInfo;
-      const AMaxSizeMB: Integer = 100);
+      const AMaxSizeMB: Integer = 100;
+      const AMaxBackups: Integer = 5);
     destructor Destroy; override;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
@@ -36,18 +39,21 @@ implementation
 { TApolloFileSink }
 
 class function TApolloFileSink.New(const AFilePath: string;
-  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer): IApolloSink;
+  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer;
+  const AMaxBackups: Integer): IApolloSink;
 begin
-  Result := TApolloFileSink.Create(AFilePath, AMinLevel, AMaxSizeMB);
+  Result := TApolloFileSink.Create(AFilePath, AMinLevel, AMaxSizeMB, AMaxBackups);
 end;
 
 constructor TApolloFileSink.Create(const AFilePath: string;
-  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer);
+  const AMinLevel: TApolloLogLevel; const AMaxSizeMB: Integer;
+  const AMaxBackups: Integer);
 begin
   inherited Create;
   FFilePath := AFilePath;
   FMinLevel := AMinLevel;
   FMaxSizeBytes := Int64(AMaxSizeMB) * 1024 * 1024;
+  FMaxBackups := AMaxBackups;
   FWriter := nil;
   FLock := TObject.Create;
   OpenWriter;
@@ -94,9 +100,10 @@ end;
 
 procedure TApolloFileSink.RotateIfNeeded;
 var
-  LRotated: string;
   LStream: TStream;
   LSize: Int64;
+  LIdx: Integer;
+  LFrom, LTo: string;
 begin
   if not Assigned(FWriter) then
     Exit;
@@ -110,10 +117,24 @@ begin
     Exit;
 
   CloseWriter;
-  LRotated := FFilePath + '.1';
-  if FileExists(LRotated) then
-    DeleteFile(LRotated);
-  RenameFile(FFilePath, LRotated);
+
+  // Shift existing backups up: .N deleted, .N-1 → .N, ..., .1 → .2
+  for LIdx := FMaxBackups downto 2 do
+  begin
+    LTo   := FFilePath + '.' + IntToStr(LIdx);
+    LFrom := FFilePath + '.' + IntToStr(LIdx - 1);
+    if FileExists(LTo) then
+      DeleteFile(LTo);
+    if FileExists(LFrom) then
+      RenameFile(LFrom, LTo);
+  end;
+
+  // Current file → .1
+  LTo := FFilePath + '.1';
+  if FileExists(LTo) then
+    DeleteFile(LTo);
+  RenameFile(FFilePath, LTo);
+
   OpenWriter;
 end;
 

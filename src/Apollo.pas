@@ -4,11 +4,8 @@ interface
 
 uses
   Apollo.Entry,
-  Apollo.Sink.Interfaces,
   Apollo.Dispatcher,
-  Apollo.Logger,
-  Apollo.Sink.Console,
-  Apollo.Sink.File;
+  Apollo.Logger;
 
 var
   GApollo: IApolloLogger;
@@ -16,7 +13,8 @@ var
 procedure ApolloSetup(const ADispatcher: TApolloDispatcher);
 
 // Procedures de conveniencia — delegam para GApollo.
-// Requerem ApolloSetup antes de usar; ignoradas silenciosamente se GApollo nao estiver configurado.
+// Requerem ApolloSetup antes de usar.
+// Se GApollo nao estiver configurado, retornam um builder no-op (Emit e ignorado, sem crash).
 function ApolloTrace(const AMessage: string): IApolloLogBuilder;
 function ApolloDebug(const AMessage: string): IApolloLogBuilder;
 function ApolloInfo (const AMessage: string): IApolloLogBuilder;
@@ -27,6 +25,9 @@ function ApolloFatal(const AMessage: string): IApolloLogBuilder;
 
 implementation
 
+uses
+  System.SysUtils;
+
 procedure ApolloSetup(const ADispatcher: TApolloDispatcher);
 begin
   GApollo := TApolloLogger.New(ADispatcher);
@@ -35,43 +36,43 @@ end;
 function ApolloTrace(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Trace(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloDebug(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Debug(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloInfo(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Info(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloWarn(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Warn(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloError(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Error(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloError(const AMessage: string; const AException: Exception): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Error(AMessage, AException)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 function ApolloFatal(const AMessage: string): IApolloLogBuilder;
 begin
   if Assigned(GApollo) then Result := GApollo.Fatal(AMessage)
-  else Result := nil;
+  else Result := TApolloLogBuilder.Noop;
 end;
 
 end.

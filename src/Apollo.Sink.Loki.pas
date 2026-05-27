@@ -11,6 +11,7 @@ type
   IApolloLokiSink = interface(IApolloSink)
     ['{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}']
     function WithLabel(const AKey, AValue: string): IApolloLokiSink;
+    function BasicAuth(const AUser, APassword: string): IApolloLokiSink;
   end;
 
   TApolloLokiSink = class(TInterfacedObject, IApolloSink, IApolloLokiSink)
@@ -27,12 +28,11 @@ type
     function FormatFields(const AEntry: TApolloLogEntry): string;
     procedure SendBatch(const ABody: string);
   public
-    class function New(const ABaseURL: string; const AUser: string = '';
-      const APassword: string = '';
+    class function New(const ABaseURL: string;
       const AMinLevel: TApolloLogLevel = llInfo): IApolloLokiSink;
-    constructor Create(const ABaseURL: string; const AUser: string;
-      const APassword: string; const AMinLevel: TApolloLogLevel);
+    constructor Create(const ABaseURL: string; const AMinLevel: TApolloLogLevel);
     function WithLabel(const AKey, AValue: string): IApolloLokiSink;
+    function BasicAuth(const AUser, APassword: string): IApolloLokiSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -49,20 +49,18 @@ uses
 { TApolloLokiSink }
 
 class function TApolloLokiSink.New(const ABaseURL: string;
-  const AUser: string; const APassword: string;
   const AMinLevel: TApolloLogLevel): IApolloLokiSink;
 begin
-  Result := TApolloLokiSink.Create(ABaseURL, AUser, APassword, AMinLevel);
+  Result := TApolloLokiSink.Create(ABaseURL, AMinLevel);
 end;
 
 constructor TApolloLokiSink.Create(const ABaseURL: string;
-  const AUser: string; const APassword: string;
   const AMinLevel: TApolloLogLevel);
 begin
   inherited Create;
   FBaseURL := ABaseURL;
-  FUser := AUser;
-  FPassword := APassword;
+  FUser := '';
+  FPassword := '';
   FMinLevel := AMinLevel;
   FCustomLabels := [];
 end;
@@ -79,6 +77,13 @@ begin
   LIdx := Length(FCustomLabels);
   SetLength(FCustomLabels, LIdx + 1);
   FCustomLabels[LIdx] := TPair<string, string>.Create(AKey, AValue);
+  Result := Self;
+end;
+
+function TApolloLokiSink.BasicAuth(const AUser, APassword: string): IApolloLokiSink;
+begin
+  FUser := AUser;
+  FPassword := APassword;
   Result := Self;
 end;
 

@@ -77,14 +77,20 @@ begin
       [LYear, LMonth, LDay, LHour, LMin, LSec, LMs]));
     LRoot.AddPair('level',   LevelToString(AEntry.Level));
     LRoot.AddPair('message', AEntry.Message);
-    LRoot.AddPair('logger',  AEntry.Logger);
-    LRoot.AddPair('traceId', AEntry.TraceId);
-    LRoot.AddPair('spanId',  AEntry.SpanId);
+    if AEntry.Logger <> '' then
+      LRoot.AddPair('logger', AEntry.Logger);
+    if AEntry.TraceId <> '' then
+      LRoot.AddPair('traceId', AEntry.TraceId);
+    if AEntry.SpanId <> '' then
+      LRoot.AddPair('spanId', AEntry.SpanId);
 
-    LFields := TJSONObject.Create;
-    for LPair in AEntry.Fields do
-      LFields.AddPair(LPair.Key, FieldValueToJSON(LPair.Value));
-    LRoot.AddPair('fields', LFields);
+    if Length(AEntry.Fields) > 0 then
+    begin
+      LFields := TJSONObject.Create;
+      for LPair in AEntry.Fields do
+        LFields.AddPair(LPair.Key, FieldValueToJSON(LPair.Value));
+      LRoot.AddPair('fields', LFields);
+    end;
 
     Result := LRoot.ToJSON;
   finally

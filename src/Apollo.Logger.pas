@@ -31,6 +31,10 @@ type
     function Fatal(const AMessage: string): IApolloLogBuilder;
     function MinLevel(const ALevel: TApolloLogLevel): IApolloLogger;
     function LoggerName(const AName: string): IApolloLogger;
+    function WithContext(const AKey, AValue: string): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Integer): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Double): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Boolean): IApolloLogger; overload;
   end;
 
   TApolloLogBuilder = class(TInterfacedObject, IApolloLogBuilder)
@@ -39,8 +43,12 @@ type
     FDispatcher: TApolloDispatcher;
     FFields: TList<TPair<string, TApolloFieldValue>>;
   public
+    class function Noop: IApolloLogBuilder;
     constructor Create(const ADispatcher: TApolloDispatcher;
-      const AEntry: TApolloLogEntry);
+      const AEntry: TApolloLogEntry); overload;
+    constructor Create(const ADispatcher: TApolloDispatcher;
+      const AEntry: TApolloLogEntry;
+      const AContextFields: TArray<TPair<string, TApolloFieldValue>>); overload;
     destructor Destroy; override;
     function Field(const AKey, AValue: string): IApolloLogBuilder; overload;
     function Field(const AKey: string; AValue: Integer): IApolloLogBuilder; overload;
@@ -56,10 +64,13 @@ type
     FDispatcher: TApolloDispatcher;
     FMinLevel: TApolloLogLevel;
     FLoggerName: string;
+    FContextFields: TList<TPair<string, TApolloFieldValue>>;
     function BuildEntry(const ALevel: TApolloLogLevel;
       const AMessage: string): IApolloLogBuilder;
+    procedure AddContextField(const AKey: string; const AValue: TApolloFieldValue);
   public
     constructor Create(const ADispatcher: TApolloDispatcher);
+    destructor Destroy; override;
     class function New(const ADispatcher: TApolloDispatcher): IApolloLogger;
     function Trace(const AMessage: string): IApolloLogBuilder;
     function Debug(const AMessage: string): IApolloLogBuilder;
@@ -70,6 +81,10 @@ type
     function Fatal(const AMessage: string): IApolloLogBuilder;
     function MinLevel(const ALevel: TApolloLogLevel): IApolloLogger;
     function LoggerName(const AName: string): IApolloLogger;
+    function WithContext(const AKey, AValue: string): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Integer): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Double): IApolloLogger; overload;
+    function WithContext(const AKey: string; AValue: Boolean): IApolloLogger; overload;
   end;
 
 implementation
@@ -79,6 +94,14 @@ uses
 
 { TApolloLogBuilder }
 
+class function TApolloLogBuilder.Noop: IApolloLogBuilder;
+var
+  LEntry: TApolloLogEntry;
+begin
+  LEntry := Default(TApolloLogEntry);
+  Result := TApolloLogBuilder.Create(nil, LEntry);
+end;
+
 constructor TApolloLogBuilder.Create(const ADispatcher: TApolloDispatcher;
   const AEntry: TApolloLogEntry);
 begin
@@ -86,6 +109,20 @@ begin
   FDispatcher := ADispatcher;
   FEntry := AEntry;
   FFields := TList<TPair<string, TApolloFieldValue>>.Create;
+end;
+
+constructor TApolloLogBuilder.Create(const ADispatcher: TApolloDispatcher;
+  const AEntry: TApolloLogEntry;
+  const AContextFields: TArray<TPair<string, TApolloFieldValue>>);
+var
+  LPair: TPair<string, TApolloFieldValue>;
+begin
+  inherited Create;
+  FDispatcher := ADispatcher;
+  FEntry := AEntry;
+  FFields := TList<TPair<string, TApolloFieldValue>>.Create;
+  for LPair in AContextFields do
+    FFields.Add(LPair);
 end;
 
 destructor TApolloLogBuilder.Destroy;
@@ -162,6 +199,13 @@ begin
   FDispatcher := ADispatcher;
   FMinLevel := llTrace;
   FLoggerName := '';
+  FContextFields := TList<TPair<string, TApolloFieldValue>>.Create;
+end;
+
+destructor TApolloLogger.Destroy;
+begin
+  FContextFields.Free;
+  inherited;
 end;
 
 class function TApolloLogger.New(const ADispatcher: TApolloDispatcher): IApolloLogger;
@@ -169,31 +213,32 @@ begin
   Result := TApolloLogger.Create(ADispatcher);
 end;
 
+procedure TApolloLogger.AddContextField(const AKey: string;
+  const AValue: TApolloFieldValue);
+begin
+  FContextFields.Add(TPair<string, TApolloFieldValue>.Create(AKey, AValue));
+end;
+
 function TApolloLogger.BuildEntry(const ALevel: TApolloLogLevel;
   const AMessage: string): IApolloLogBuilder;
 var
   LEntry: TApolloLogEntry;
 begin
-  if Ord(ALevel) < Ord(FMinLevel) then
-  begin
-    // Return a no-op builder that discards the entry
-    LEntry.Timestamp := Now;
-    LEntry.Level := ALevel;
-    LEntry.Message := AMessage;
-    LEntry.TraceId := '';
-    LEntry.SpanId := '';
-    LEntry.Logger := FLoggerName;
-    Result := TApolloLogBuilder.Create(nil, LEntry);
-    Exit;
-  end;
-
   LEntry.Timestamp := Now;
   LEntry.Level := ALevel;
   LEntry.Message := AMessage;
   LEntry.TraceId := '';
   LEntry.SpanId := '';
   LEntry.Logger := FLoggerName;
-  Result := TApolloLogBuilder.Create(FDispatcher, LEntry);
+
+  if Ord(ALevel) < Ord(FMinLevel) then
+  begin
+    // No-op builder: context still available for chaining, Emit does nothing
+    Result := TApolloLogBuilder.Create(nil, LEntry, FContextFields.ToArray);
+    Exit;
+  end;
+
+  Result := TApolloLogBuilder.Create(FDispatcher, LEntry, FContextFields.ToArray);
 end;
 
 function TApolloLogger.Trace(const AMessage: string): IApolloLogBuilder;
@@ -243,6 +288,46 @@ end;
 function TApolloLogger.LoggerName(const AName: string): IApolloLogger;
 begin
   FLoggerName := AName;
+  Result := Self;
+end;
+
+function TApolloLogger.WithContext(const AKey, AValue: string): IApolloLogger;
+var
+  LVal: TApolloFieldValue;
+begin
+  LVal.Kind := fkString;
+  LVal.AsString := AValue;
+  AddContextField(AKey, LVal);
+  Result := Self;
+end;
+
+function TApolloLogger.WithContext(const AKey: string; AValue: Integer): IApolloLogger;
+var
+  LVal: TApolloFieldValue;
+begin
+  LVal.Kind := fkInt64;
+  LVal.AsInt64 := AValue;
+  AddContextField(AKey, LVal);
+  Result := Self;
+end;
+
+function TApolloLogger.WithContext(const AKey: string; AValue: Double): IApolloLogger;
+var
+  LVal: TApolloFieldValue;
+begin
+  LVal.Kind := fkDouble;
+  LVal.AsDouble := AValue;
+  AddContextField(AKey, LVal);
+  Result := Self;
+end;
+
+function TApolloLogger.WithContext(const AKey: string; AValue: Boolean): IApolloLogger;
+var
+  LVal: TApolloFieldValue;
+begin
+  LVal.Kind := fkBoolean;
+  LVal.AsBoolean := AValue;
+  AddContextField(AKey, LVal);
   Result := Self;
 end;
 

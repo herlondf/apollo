@@ -127,6 +127,16 @@ LDispatcher.AddSink(
 );
 ```
 
+With authentication:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloLokiSink.New('http://loki:3100', llInfo)
+    .BasicAuth('admin', 'secret')
+    .WithLabel('app', 'my-api')
+);
+```
+
 ## Elasticsearch
 
 ```pascal
@@ -156,6 +166,7 @@ LDispatcher.AddSink(
   TApolloDatadogSink.New('my-dd-api-key', llInfo)
     .Service('my-api')               // optional — defaults to 'app'
     .Site('datadoghq.eu')            // optional — defaults to datadoghq.com
+    .Tag('env:production,team:core') // optional — Datadog tags
 );
 ```
 
@@ -168,7 +179,39 @@ LDispatcher.AddSink(
   TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
     .ResourceAttribute('service.name', 'my-api')
     .ResourceAttribute('deployment.environment', 'production')
+    .BearerToken('my-token')         // optional — most collectors require auth
 );
+```
+
+Use a custom Authorization header when Bearer is not enough:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
+    .ResourceAttribute('service.name', 'my-api')
+    .Authorization('Basic dXNlcjpwYXNz')
+);
+```
+
+## Context Fields
+
+Pre-set fields that propagate to every log entry emitted by the logger:
+
+```pascal
+var
+  LLogger: IApolloLogger;
+begin
+  LLogger := TApolloLogger.New(LDispatcher)
+    .WithContext('service', 'order-processor')
+    .WithContext('version', 3)
+    .WithContext('region', 'us-east-1');
+
+  LLogger.Info('job started').Field('job_id', '42').Emit;
+  // → message=job started  service=order-processor  version=3  region=us-east-1  job_id=42
+
+  LLogger.Error('job failed', E).Emit;
+  // → error.type + error.message + all context fields
+end;
 ```
 
 ## Architecture

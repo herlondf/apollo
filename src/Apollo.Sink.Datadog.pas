@@ -12,6 +12,7 @@ type
     ['{B3C4D5E6-F7A8-9012-3456-789012CDEF01}']
     function Site(const ASite: string): IApolloDatadogSink;
     function Service(const AService: string): IApolloDatadogSink;
+    function Tag(const ATags: string): IApolloDatadogSink;
   end;
 
   TApolloDatadogSink = class(TInterfacedObject, IApolloSink, IApolloDatadogSink)
@@ -19,6 +20,7 @@ type
     FApiKey: string;
     FService: string;
     FEndpointURL: string;
+    FDDTags: string;
     FMinLevel: TApolloLogLevel;
     function LevelToStatus(const ALevel: TApolloLogLevel): string;
     function BuildBody(const AEntries: TArray<TApolloLogEntry>): string;
@@ -31,6 +33,7 @@ type
     constructor Create(const AApiKey: string; const AMinLevel: TApolloLogLevel);
     function Site(const ASite: string): IApolloDatadogSink;
     function Service(const AService: string): IApolloDatadogSink;
+    function Tag(const ATags: string): IApolloDatadogSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -57,6 +60,7 @@ begin
   FApiKey := AApiKey;
   FService := 'app';
   FEndpointURL := 'https://http-intake.logs.datadoghq.com/api/v2/logs';
+  FDDTags := '';
   FMinLevel := AMinLevel;
 end;
 
@@ -77,6 +81,12 @@ end;
 function TApolloDatadogSink.Service(const AService: string): IApolloDatadogSink;
 begin
   FService := AService;
+  Result := Self;
+end;
+
+function TApolloDatadogSink.Tag(const ATags: string): IApolloDatadogSink;
+begin
+  FDDTags := ATags;
   Result := Self;
 end;
 
@@ -129,12 +139,17 @@ begin
       LFirst := False;
 
       LBuilder.Append('{"ddsource":"delphi"');
-      LBuilder.Append(',"ddtags":"env:prod"');
+      if FDDTags <> '' then
+      begin
+        LBuilder.Append(',"ddtags":"');
+        LBuilder.Append(StringReplace(FDDTags, '"', '\"', [rfReplaceAll]));
+        LBuilder.Append('"');
+      end;
       LBuilder.Append(',"hostname":"');
       LBuilder.Append(LHostName);
       LBuilder.Append('"');
       LBuilder.Append(',"service":"');
-      LBuilder.Append(FService);
+      LBuilder.Append(StringReplace(FService, '"', '\"', [rfReplaceAll]));
       LBuilder.Append('"');
       LBuilder.Append(',"status":"');
       LBuilder.Append(LevelToStatus(LEntry.Level));
