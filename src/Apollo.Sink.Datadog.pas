@@ -8,7 +8,13 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloDatadogSink = class(TInterfacedObject, IApolloSink)
+  IApolloDatadogSink = interface(IApolloSink)
+    ['{B3C4D5E6-F7A8-9012-3456-789012CDEF01}']
+    function Site(const ASite: string): IApolloDatadogSink;
+    function Service(const AService: string): IApolloDatadogSink;
+  end;
+
+  TApolloDatadogSink = class(TInterfacedObject, IApolloSink, IApolloDatadogSink)
   private
     FApiKey: string;
     FService: string;
@@ -20,11 +26,11 @@ type
     function DateTimeToUnixMs(const ADateTime: TDateTime): Int64;
     function GetHostName: string;
   public
-    class function New(const AApiKey: string; const AService: string = 'app';
-      const ASite: string = 'us';
-      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
-    constructor Create(const AApiKey: string; const AService: string;
-      const AEndpointURL: string; const AMinLevel: TApolloLogLevel);
+    class function New(const AApiKey: string;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloDatadogSink;
+    constructor Create(const AApiKey: string; const AMinLevel: TApolloLogLevel);
+    function Site(const ASite: string): IApolloDatadogSink;
+    function Service(const AService: string): IApolloDatadogSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -39,32 +45,39 @@ uses
 { TApolloDatadogSink }
 
 class function TApolloDatadogSink.New(const AApiKey: string;
-  const AService: string; const ASite: string;
-  const AMinLevel: TApolloLogLevel): IApolloSink;
-var
-  LURL: string;
+  const AMinLevel: TApolloLogLevel): IApolloDatadogSink;
 begin
-  if ASite = 'eu' then
-    LURL := 'https://http-intake.logs.datadoghq.eu/api/v2/logs'
-  else
-    LURL := 'https://http-intake.logs.datadoghq.com/api/v2/logs';
-  Result := TApolloDatadogSink.Create(AApiKey, AService, LURL, AMinLevel);
+  Result := TApolloDatadogSink.Create(AApiKey, AMinLevel);
 end;
 
 constructor TApolloDatadogSink.Create(const AApiKey: string;
-  const AService: string; const AEndpointURL: string;
   const AMinLevel: TApolloLogLevel);
 begin
   inherited Create;
   FApiKey := AApiKey;
-  FService := AService;
-  FEndpointURL := AEndpointURL;
+  FService := 'app';
+  FEndpointURL := 'https://http-intake.logs.datadoghq.com/api/v2/logs';
   FMinLevel := AMinLevel;
 end;
 
 function TApolloDatadogSink.MinLevel: TApolloLogLevel;
 begin
   Result := FMinLevel;
+end;
+
+function TApolloDatadogSink.Site(const ASite: string): IApolloDatadogSink;
+begin
+  if (ASite = 'eu') or (ASite = 'datadoghq.eu') then
+    FEndpointURL := 'https://http-intake.logs.datadoghq.eu/api/v2/logs'
+  else
+    FEndpointURL := 'https://http-intake.logs.datadoghq.com/api/v2/logs';
+  Result := Self;
+end;
+
+function TApolloDatadogSink.Service(const AService: string): IApolloDatadogSink;
+begin
+  FService := AService;
+  Result := Self;
 end;
 
 function TApolloDatadogSink.LevelToStatus(const ALevel: TApolloLogLevel): string;
@@ -102,7 +115,6 @@ var
   LEntry: TApolloLogEntry;
   LPair: TPair<string, TApolloFieldValue>;
   LFirst: Boolean;
-  LFirstField: Boolean;
   LHostName: string;
 begin
   LHostName := GetHostName;

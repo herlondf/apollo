@@ -25,23 +25,23 @@ verdade — *trazendo as coisas à luz*. Todos os projetos da família olímpica
 uses Apollo, Apollo.Sink.Console, Apollo.Dispatcher;
 
 var
-  Dispatcher: TApolloDispatcher;
+  LDispatcher: TApolloDispatcher;
 begin
-  Dispatcher := TApolloDispatcher.New;
-  Dispatcher.AddSink(TApolloConsoleSink.New(llInfo));
-  ApolloSetup(Dispatcher);
-  Dispatcher.Start;
+  LDispatcher := TApolloDispatcher.New;
+  LDispatcher.AddSink(TApolloConsoleSink.New(llInfo));
+  ApolloSetup(LDispatcher);
+  LDispatcher.Start;
 
-  Apollo.Info('servidor iniciado').Field('porta', 9000).Emit;
-  Apollo.Warn('memoria alta').Field('mb', 512).Emit;
-  Apollo.Error('job falhou', E).Field('job_id', '123').Emit;
+  ApolloInfo('servidor iniciado').Field('porta', 9000).Emit;
+  ApolloWarn('memoria alta').Field('mb', 512).Emit;
+  ApolloError('job falhou', E).Field('job_id', '123').Emit;
 end;
 ```
 
 ## API Fluente
 
 ```pascal
-Apollo.Info('requisicao processada')
+ApolloInfo('requisicao processada')
   .Field('method', 'GET')
   .Field('path', '/users')
   .Field('status', 200)
@@ -54,12 +54,12 @@ Apollo.Info('requisicao processada')
 ## Níveis de Log
 
 ```pascal
-Apollo.Trace('detalhe verboso').Emit;
-Apollo.Debug('estado interno').Emit;
-Apollo.Info('evento normal').Emit;
-Apollo.Warn('algo inesperado').Emit;
-Apollo.Error('algo falhou').Emit;
-Apollo.Fatal('irrecuperavel').Emit;
+ApolloTrace('detalhe verboso').Emit;
+ApolloDebug('estado interno').Emit;
+ApolloInfo('evento normal').Emit;
+ApolloWarn('algo inesperado').Emit;
+ApolloError('algo falhou').Emit;
+ApolloFatal('irrecuperavel').Emit;
 ```
 
 ## Instalação
@@ -98,9 +98,9 @@ Implemente `IApolloSink` (2 métodos) para adicionar o seu próprio.
 ## Múltiplos Sinks
 
 ```pascal
-Dispatcher.AddSink(TApolloConsoleSink.New(llDebug));
-Dispatcher.AddSink(TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo));
-Dispatcher.AddSink(TApolloLokiSink.New('http://loki:3100', llWarn));
+LDispatcher.AddSink(TApolloConsoleSink.New(llDebug));
+LDispatcher.AddSink(TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo));
+LDispatcher.AddSink(TApolloLokiSink.New('http://loki:3100', llWarn));
 ```
 
 Cada sink tem seu próprio nível mínimo. Console mostra debug; Loki recebe apenas warnings e acima.
@@ -110,7 +110,7 @@ Cada sink tem seu próprio nível mínimo. Console mostra debug; Loki recebe ape
 ```pascal
 uses Apollo.Sink.Seq;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo)
 );
 ```
@@ -120,10 +120,10 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Loki;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloLokiSink.New('http://loki:3100', llInfo)
-    .Label('app', 'my-api')
-    .Label('env', 'production')
+    .WithLabel('app', 'my-api')
+    .WithLabel('env', 'production')
 );
 ```
 
@@ -132,9 +132,18 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Elasticsearch;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloElasticsearchSink.New('http://es:9200', 'logs-myapp', llInfo)
     .BasicAuth('elastic', 'password')
+);
+```
+
+Use API key ao invés de usuário/senha:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloElasticsearchSink.New('http://es:9200', 'logs-myapp', llInfo)
+    .ApiKey('my-encoded-api-key')
 );
 ```
 
@@ -143,9 +152,10 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Datadog;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloDatadogSink.New('my-dd-api-key', llInfo)
-    .Site('datadoghq.eu')   // opcional — padrão: datadoghq.com
+    .Service('my-api')               // opcional — padrão: 'app'
+    .Site('datadoghq.eu')            // opcional — padrão: datadoghq.com
 );
 ```
 
@@ -154,7 +164,7 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.OTLP;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
     .ResourceAttribute('service.name', 'my-api')
     .ResourceAttribute('deployment.environment', 'production')

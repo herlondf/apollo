@@ -8,22 +8,30 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloElasticsearchSink = class(TInterfacedObject, IApolloSink)
+  IApolloElasticsearchSink = interface(IApolloSink)
+    ['{A2B3C4D5-E6F7-8901-2345-678901BCDEF0}']
+    function BasicAuth(const AUser, APassword: string): IApolloElasticsearchSink;
+    function ApiKey(const AKey: string): IApolloElasticsearchSink;
+  end;
+
+  TApolloElasticsearchSink = class(TInterfacedObject, IApolloSink,
+    IApolloElasticsearchSink)
   private
     FBaseURL: string;
+    FIndexPrefix: string;
     FMinLevel: TApolloLogLevel;
     FAuthHeader: string;
     procedure SendBulk(const ABody: string);
     function BuildBulkBody(const AEntries: TArray<TApolloLogEntry>): string;
     function IndexName(const ATimestamp: TDateTime): string;
   public
-    class function New(const ABaseURL: string; const AUser: string = '';
-      const APassword: string = '';
-      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
-    class function NewWithApiKey(const ABaseURL, AApiKey: string;
-      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
-    constructor Create(const ABaseURL: string; const AAuthHeader: string;
+    class function New(const ABaseURL: string;
+      const AIndexPrefix: string = 'logs';
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloElasticsearchSink;
+    constructor Create(const ABaseURL: string; const AIndexPrefix: string;
       const AMinLevel: TApolloLogLevel);
+    function BasicAuth(const AUser, APassword: string): IApolloElasticsearchSink;
+    function ApiKey(const AKey: string): IApolloElasticsearchSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -38,35 +46,19 @@ uses
 { TApolloElasticsearchSink }
 
 class function TApolloElasticsearchSink.New(const ABaseURL: string;
-  const AUser: string; const APassword: string;
-  const AMinLevel: TApolloLogLevel): IApolloSink;
-var
-  LAuth: string;
-  LEncoded: string;
+  const AIndexPrefix: string; const AMinLevel: TApolloLogLevel): IApolloElasticsearchSink;
 begin
-  LAuth := '';
-  if AUser <> '' then
-  begin
-    LEncoded := TNetEncoding.Base64.Encode(AUser + ':' + APassword);
-    LAuth := 'Basic ' + LEncoded;
-  end;
-  Result := TApolloElasticsearchSink.Create(ABaseURL, LAuth, AMinLevel);
-end;
-
-class function TApolloElasticsearchSink.NewWithApiKey(const ABaseURL,
-  AApiKey: string; const AMinLevel: TApolloLogLevel): IApolloSink;
-begin
-  Result := TApolloElasticsearchSink.Create(ABaseURL,
-    'ApiKey ' + AApiKey, AMinLevel);
+  Result := TApolloElasticsearchSink.Create(ABaseURL, AIndexPrefix, AMinLevel);
 end;
 
 constructor TApolloElasticsearchSink.Create(const ABaseURL: string;
-  const AAuthHeader: string; const AMinLevel: TApolloLogLevel);
+  const AIndexPrefix: string; const AMinLevel: TApolloLogLevel);
 begin
   inherited Create;
   FBaseURL := ABaseURL;
-  FAuthHeader := AAuthHeader;
+  FIndexPrefix := AIndexPrefix;
   FMinLevel := AMinLevel;
+  FAuthHeader := '';
 end;
 
 function TApolloElasticsearchSink.MinLevel: TApolloLogLevel;
@@ -74,12 +66,29 @@ begin
   Result := FMinLevel;
 end;
 
+function TApolloElasticsearchSink.BasicAuth(const AUser,
+  APassword: string): IApolloElasticsearchSink;
+var
+  LEncoded: string;
+begin
+  LEncoded := TNetEncoding.Base64.Encode(AUser + ':' + APassword);
+  FAuthHeader := 'Basic ' + LEncoded;
+  Result := Self;
+end;
+
+function TApolloElasticsearchSink.ApiKey(
+  const AKey: string): IApolloElasticsearchSink;
+begin
+  FAuthHeader := 'ApiKey ' + AKey;
+  Result := Self;
+end;
+
 function TApolloElasticsearchSink.IndexName(const ATimestamp: TDateTime): string;
 var
   LYear, LMonth, LDay, LHour, LMin, LSec, LMs: Word;
 begin
   DecodeDateTime(ATimestamp, LYear, LMonth, LDay, LHour, LMin, LSec, LMs);
-  Result := Format('logs-%.4d.%.2d.%.2d', [LYear, LMonth, LDay]);
+  Result := Format('%s-%.4d.%.2d.%.2d', [FIndexPrefix, LYear, LMonth, LDay]);
 end;
 
 function TApolloElasticsearchSink.BuildBulkBody(

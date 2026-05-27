@@ -25,23 +25,23 @@ Apollo brings structured, async logging to Delphi. Named after the god of light 
 uses Apollo, Apollo.Sink.Console, Apollo.Dispatcher;
 
 var
-  Dispatcher: TApolloDispatcher;
+  LDispatcher: TApolloDispatcher;
 begin
-  Dispatcher := TApolloDispatcher.New;
-  Dispatcher.AddSink(TApolloConsoleSink.New(llInfo));
-  ApolloSetup(Dispatcher);
-  Dispatcher.Start;
+  LDispatcher := TApolloDispatcher.New;
+  LDispatcher.AddSink(TApolloConsoleSink.New(llInfo));
+  ApolloSetup(LDispatcher);
+  LDispatcher.Start;
 
-  Apollo.Info('server started').Field('port', 9000).Emit;
-  Apollo.Warn('high memory').Field('mb', 512).Emit;
-  Apollo.Error('job failed', E).Field('job_id', '123').Emit;
+  ApolloInfo('server started').Field('port', 9000).Emit;
+  ApolloWarn('high memory').Field('mb', 512).Emit;
+  ApolloError('job failed', E).Field('job_id', '123').Emit;
 end;
 ```
 
 ## Fluent API
 
 ```pascal
-Apollo.Info('request processed')
+ApolloInfo('request processed')
   .Field('method', 'GET')
   .Field('path', '/users')
   .Field('status', 200)
@@ -54,12 +54,12 @@ Apollo.Info('request processed')
 ## Log Levels
 
 ```pascal
-Apollo.Trace('verbose detail').Emit;
-Apollo.Debug('internal state').Emit;
-Apollo.Info('normal event').Emit;
-Apollo.Warn('something unexpected').Emit;
-Apollo.Error('something failed').Emit;
-Apollo.Fatal('unrecoverable').Emit;
+ApolloTrace('verbose detail').Emit;
+ApolloDebug('internal state').Emit;
+ApolloInfo('normal event').Emit;
+ApolloWarn('something unexpected').Emit;
+ApolloError('something failed').Emit;
+ApolloFatal('unrecoverable').Emit;
 ```
 
 ## Installation
@@ -98,9 +98,9 @@ Implement `IApolloSink` (2 methods) to add your own.
 ## Multiple Sinks
 
 ```pascal
-Dispatcher.AddSink(TApolloConsoleSink.New(llDebug));
-Dispatcher.AddSink(TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo));
-Dispatcher.AddSink(TApolloLokiSink.New('http://loki:3100', llWarn));
+LDispatcher.AddSink(TApolloConsoleSink.New(llDebug));
+LDispatcher.AddSink(TApolloSeqSink.New('http://seq:5341', 'my-api-key', llInfo));
+LDispatcher.AddSink(TApolloLokiSink.New('http://loki:3100', llWarn));
 ```
 
 Each sink has its own minimum level. Console shows debug; Loki only receives warnings and above.
@@ -120,10 +120,10 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Loki;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloLokiSink.New('http://loki:3100', llInfo)
-    .Label('app', 'my-api')
-    .Label('env', 'production')
+    .WithLabel('app', 'my-api')
+    .WithLabel('env', 'production')
 );
 ```
 
@@ -132,9 +132,18 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Elasticsearch;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloElasticsearchSink.New('http://es:9200', 'logs-myapp', llInfo)
     .BasicAuth('elastic', 'password')
+);
+```
+
+Use an API key instead of user/password:
+
+```pascal
+LDispatcher.AddSink(
+  TApolloElasticsearchSink.New('http://es:9200', 'logs-myapp', llInfo)
+    .ApiKey('my-encoded-api-key')
 );
 ```
 
@@ -143,9 +152,10 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.Datadog;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloDatadogSink.New('my-dd-api-key', llInfo)
-    .Site('datadoghq.eu')   // optional — defaults to datadoghq.com
+    .Service('my-api')               // optional — defaults to 'app'
+    .Site('datadoghq.eu')            // optional — defaults to datadoghq.com
 );
 ```
 
@@ -154,7 +164,7 @@ Dispatcher.AddSink(
 ```pascal
 uses Apollo.Sink.OTLP;
 
-Dispatcher.AddSink(
+LDispatcher.AddSink(
   TApolloOTLPSink.New('http://otel-collector:4318', llInfo)
     .ResourceAttribute('service.name', 'my-api')
     .ResourceAttribute('deployment.environment', 'production')

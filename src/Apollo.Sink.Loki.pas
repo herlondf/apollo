@@ -8,12 +8,20 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloLokiSink = class(TInterfacedObject, IApolloSink)
+  IApolloLokiSink = interface(IApolloSink)
+    ['{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}']
+    function WithLabel(const AKey, AValue: string): IApolloLokiSink;
+  end;
+
+  TApolloLokiSink = class(TInterfacedObject, IApolloSink, IApolloLokiSink)
   private
     FBaseURL: string;
     FUser: string;
     FPassword: string;
     FMinLevel: TApolloLogLevel;
+    FCustomLabels: TArray<TPair<string, string>>;
+    function BuildStreamLabel(const ALevel: TApolloLogLevel;
+      const ALogger: string): string;
     function BuildPushBody(const AEntries: TArray<TApolloLogEntry>): string;
     function DateTimeToUnixNano(const ADateTime: TDateTime): Int64;
     function FormatFields(const AEntry: TApolloLogEntry): string;
@@ -21,9 +29,10 @@ type
   public
     class function New(const ABaseURL: string; const AUser: string = '';
       const APassword: string = '';
-      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloLokiSink;
     constructor Create(const ABaseURL: string; const AUser: string;
       const APassword: string; const AMinLevel: TApolloLogLevel);
+    function WithLabel(const AKey, AValue: string): IApolloLokiSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -41,7 +50,7 @@ uses
 
 class function TApolloLokiSink.New(const ABaseURL: string;
   const AUser: string; const APassword: string;
-  const AMinLevel: TApolloLogLevel): IApolloSink;
+  const AMinLevel: TApolloLogLevel): IApolloLokiSink;
 begin
   Result := TApolloLokiSink.Create(ABaseURL, AUser, APassword, AMinLevel);
 end;
@@ -55,11 +64,22 @@ begin
   FUser := AUser;
   FPassword := APassword;
   FMinLevel := AMinLevel;
+  FCustomLabels := [];
 end;
 
 function TApolloLokiSink.MinLevel: TApolloLogLevel;
 begin
   Result := FMinLevel;
+end;
+
+function TApolloLokiSink.WithLabel(const AKey, AValue: string): IApolloLokiSink;
+var
+  LIdx: Integer;
+begin
+  LIdx := Length(FCustomLabels);
+  SetLength(FCustomLabels, LIdx + 1);
+  FCustomLabels[LIdx] := TPair<string, string>.Create(AKey, AValue);
+  Result := Self;
 end;
 
 function TApolloLokiSink.DateTimeToUnixNano(const ADateTime: TDateTime): Int64;
@@ -86,6 +106,38 @@ begin
   Result := LResult;
 end;
 
+function TApolloLokiSink.BuildStreamLabel(const ALevel: TApolloLogLevel;
+  const ALogger: string): string;
+var
+  LBuilder: TStringBuilder;
+  LPair: TPair<string, string>;
+begin
+  LBuilder := TStringBuilder.Create;
+  try
+    LBuilder.Append('{"level":"');
+    LBuilder.Append(LevelToString(ALevel));
+    LBuilder.Append('"');
+    if ALogger <> '' then
+    begin
+      LBuilder.Append(',"logger":"');
+      LBuilder.Append(ALogger);
+      LBuilder.Append('"');
+    end;
+    for LPair in FCustomLabels do
+    begin
+      LBuilder.Append(',"');
+      LBuilder.Append(StringReplace(LPair.Key, '"', '\"', [rfReplaceAll]));
+      LBuilder.Append('":"');
+      LBuilder.Append(StringReplace(LPair.Value, '"', '\"', [rfReplaceAll]));
+      LBuilder.Append('"');
+    end;
+    LBuilder.Append('}');
+    Result := LBuilder.ToString;
+  finally
+    LBuilder.Free;
+  end;
+end;
+
 function TApolloLokiSink.BuildPushBody(
   const AEntries: TArray<TApolloLogEntry>): string;
 var
@@ -93,7 +145,6 @@ var
   LLabels: TDictionary<string, string>;
   LEntry: TApolloLogEntry;
   LKey: string;
-  LLabel: string;
   LBuilder: TStringBuilder;
   LResult: TStringBuilder;
   LFirst: Boolean;
@@ -109,9 +160,7 @@ begin
       if not LStreams.ContainsKey(LKey) then
       begin
         LStreams.Add(LKey, TStringBuilder.Create);
-        LLabel := '{"level":"' + LevelToString(LEntry.Level) + '","logger":"' +
-          LEntry.Logger + '"}';
-        LLabels.Add(LKey, LLabel);
+        LLabels.Add(LKey, BuildStreamLabel(LEntry.Level, LEntry.Logger));
       end;
 
       LBuilder := LStreams[LKey];

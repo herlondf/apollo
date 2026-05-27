@@ -8,22 +8,28 @@ uses
   Apollo.Sink.Interfaces;
 
 type
-  TApolloOTLPSink = class(TInterfacedObject, IApolloSink)
+  IApolloOTLPSink = interface(IApolloSink)
+    ['{C4D5E6F7-A8B9-0123-4567-890123DEF012}']
+    function ResourceAttribute(const AKey, AValue: string): IApolloOTLPSink;
+  end;
+
+  TApolloOTLPSink = class(TInterfacedObject, IApolloSink, IApolloOTLPSink)
   private
     FCollectorURL: string;
-    FServiceName: string;
     FMinLevel: TApolloLogLevel;
+    FResourceAttributes: TArray<TPair<string, string>>;
     function LevelToSeverityNumber(const ALevel: TApolloLogLevel): Integer;
     function DateTimeToUnixNano(const ADateTime: TDateTime): Int64;
     function BuildBody(const AEntries: TArray<TApolloLogEntry>): string;
     function BuildLogRecord(const AEntry: TApolloLogEntry): string;
+    function BuildResourceAttributes: string;
     procedure SendBatch(const ABody: string);
   public
     class function New(const ACollectorURL: string;
-      const AServiceName: string = 'app';
-      const AMinLevel: TApolloLogLevel = llInfo): IApolloSink;
-    constructor Create(const ACollectorURL: string; const AServiceName: string;
+      const AMinLevel: TApolloLogLevel = llInfo): IApolloOTLPSink;
+    constructor Create(const ACollectorURL: string;
       const AMinLevel: TApolloLogLevel);
+    function ResourceAttribute(const AKey, AValue: string): IApolloOTLPSink;
     procedure Write(const AEntries: TArray<TApolloLogEntry>);
     function MinLevel: TApolloLogLevel;
   end;
@@ -38,23 +44,34 @@ uses
 { TApolloOTLPSink }
 
 class function TApolloOTLPSink.New(const ACollectorURL: string;
-  const AServiceName: string; const AMinLevel: TApolloLogLevel): IApolloSink;
+  const AMinLevel: TApolloLogLevel): IApolloOTLPSink;
 begin
-  Result := TApolloOTLPSink.Create(ACollectorURL, AServiceName, AMinLevel);
+  Result := TApolloOTLPSink.Create(ACollectorURL, AMinLevel);
 end;
 
 constructor TApolloOTLPSink.Create(const ACollectorURL: string;
-  const AServiceName: string; const AMinLevel: TApolloLogLevel);
+  const AMinLevel: TApolloLogLevel);
 begin
   inherited Create;
   FCollectorURL := ACollectorURL;
-  FServiceName := AServiceName;
   FMinLevel := AMinLevel;
+  FResourceAttributes := [];
 end;
 
 function TApolloOTLPSink.MinLevel: TApolloLogLevel;
 begin
   Result := FMinLevel;
+end;
+
+function TApolloOTLPSink.ResourceAttribute(const AKey,
+  AValue: string): IApolloOTLPSink;
+var
+  LIdx: Integer;
+begin
+  LIdx := Length(FResourceAttributes);
+  SetLength(FResourceAttributes, LIdx + 1);
+  FResourceAttributes[LIdx] := TPair<string, string>.Create(AKey, AValue);
+  Result := Self;
 end;
 
 function TApolloOTLPSink.LevelToSeverityNumber(const ALevel: TApolloLogLevel): Integer;
@@ -74,6 +91,32 @@ end;
 function TApolloOTLPSink.DateTimeToUnixNano(const ADateTime: TDateTime): Int64;
 begin
   Result := DateTimeToUnix(ADateTime, False) * Int64(1000000000);
+end;
+
+function TApolloOTLPSink.BuildResourceAttributes: string;
+var
+  LBuilder: TStringBuilder;
+  LPair: TPair<string, string>;
+  LFirst: Boolean;
+begin
+  LBuilder := TStringBuilder.Create;
+  try
+    LFirst := True;
+    for LPair in FResourceAttributes do
+    begin
+      if not LFirst then
+        LBuilder.Append(',');
+      LFirst := False;
+      LBuilder.Append('{"key":"');
+      LBuilder.Append(StringReplace(LPair.Key, '"', '\"', [rfReplaceAll]));
+      LBuilder.Append('","value":{"stringValue":"');
+      LBuilder.Append(StringReplace(LPair.Value, '"', '\"', [rfReplaceAll]));
+      LBuilder.Append('"}}');
+    end;
+    Result := LBuilder.ToString;
+  finally
+    LBuilder.Free;
+  end;
 end;
 
 function TApolloOTLPSink.BuildLogRecord(
@@ -165,9 +208,8 @@ begin
   LBuilder := TStringBuilder.Create;
   try
     LBuilder.Append('{"resourceLogs":[{"resource":{"attributes":[');
-    LBuilder.Append('{"key":"service.name","value":{"stringValue":"');
-    LBuilder.Append(FServiceName);
-    LBuilder.Append('"}}]}');
+    LBuilder.Append(BuildResourceAttributes);
+    LBuilder.Append(']}');
     LBuilder.Append(',"scopeLogs":[{"scope":{"name":"apollo"}');
     LBuilder.Append(',"logRecords":[');
 
